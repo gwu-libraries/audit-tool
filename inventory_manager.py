@@ -184,7 +184,7 @@ if __name__ == '__main__':
     elif args.command == 'detect_changes':
         file_system_base_path = find_base_path(inventory_map.keys(), args.path)
         inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path])
-        inventory_report = inventory_manager.detect_change(file_system_base_path)
+        inventory_report = inventory_manager.detect_change(args.path)
         if args.no_report:
             print(json.dumps(inventory_report.as_dict(), indent=2))
         else:
