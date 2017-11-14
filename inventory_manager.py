@@ -18,17 +18,21 @@ log = logging.getLogger(__name__)
 
 
 class InventoryManager:
-    def __init__(self, base_fs_path, base_inventory_path):
+    def __init__(self, base_fs_path, base_inventory_path, fixity_threads=1):
         self.base_fs_path = base_fs_path
         self.base_inventory_path = base_inventory_path
+        self.fixity_threads = fixity_threads
 
     def detect_change(self, path):
         log.info('Detecting changes for %s', path)
         inventory_diffs = []
-        fs_inventories = Inventory.perform_recursive_inventory(path, self.base_fs_path)
+        fs_inventories = Inventory.perform_recursive_inventory(path, self.base_fs_path,
+                                                               fixity_threads=self.fixity_threads)
         # If path is not base path, check parent non-recursively to make sure added/deleted directory handled.
         if path != self.base_fs_path:
-            fs_inventories.append(Inventory.perform_inventory(os.path.dirname(path), self.base_fs_path))
+            fs_inventories.append(
+                Inventory.perform_inventory(os.path.dirname(path), self.base_fs_path,
+                                            fixity_threads=self.fixity_threads))
         for fs_inventory in fs_inventories:
             try:
                 inventory_inventory = Inventory.read(fs_inventory.path, self.base_inventory_path)
@@ -177,13 +181,15 @@ if __name__ == '__main__':
         inventory_base_path = inventory_map[file_system_base_path]
         shutil.rmtree(inventory_base_path)
         os.makedirs(inventory_base_path)
-        inventory_manager = InventoryManager(file_system_base_path, inventory_base_path)
+        inventory_manager = InventoryManager(file_system_base_path, inventory_base_path,
+                                             fixity_threads=config['fixity_threads'])
         inventory_diffs = inventory_manager.detect_change(file_system_base_path)
         inventory_manager.update_inventory(inventory_diffs)
         print('Populated inventory from {}'.format(file_system_base_path))
     elif args.command == 'detect_changes':
         file_system_base_path = find_base_path(inventory_map.keys(), args.path)
-        inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path])
+        inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path],
+                                             fixity_threads=config['fixity_threads'])
         inventory_report = inventory_manager.detect_change(args.path)
         if args.no_report:
             print(json.dumps(inventory_report.as_dict(), indent=2))
@@ -206,7 +212,8 @@ if __name__ == '__main__':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
         inventory_report = InventoryReport.read(args.report_path)
-        inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path])
+        inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path],
+                                             fixity_threads=config['fixity_threads'])
         inventory_manager.update_inventory(inventory_report)
         print('Updated inventory from {}'.format(args.report_path))
     elif args.command == 'list_reports':

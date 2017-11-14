@@ -6,6 +6,8 @@ import json
 import datetime
 from pytz import timezone
 import iso8601
+import threading
+import queue
 
 log = logging.getLogger(__name__)
 
@@ -21,20 +23,42 @@ class Inventory:
         self.timestamp = datetime_now()
 
     @staticmethod
-    def perform_inventory(fs_path, base_fs_path):
+    def perform_inventory(fs_path, base_fs_path, fixity_threads=1):
         log.info('Inventorying %s', fs_path)
         inventory = Inventory(Inventory._remove_base_path(fs_path, base_fs_path))
+        child_files = []
         for child in os.listdir(fs_path):
             child_path = os.path.join(fs_path, child)
             if os.path.isdir(child_path):
                 inventory.dirs.add(child)
             elif os.path.isfile(child_path):
-                inventory.files[child] = Inventory._generate_fixity(child_path)
+                # inventory.files[child] = Inventory._generate_fixity(child_path)
+                child_files.append((child, child_path))
+        if child_files:
+            q = queue.Queue()
+            threads = []
+            thread_count = min(len(child_files), fixity_threads)
+            for i in range(thread_count):
+                t = FixityThread(q, inventory.files)
+                t.start()
+                threads.append(t)
+
+            for file in child_files:
+                q.put(file)
+
+            # block until all tasks are done
+            q.join()
+
+            # stop workers
+            for i in range(thread_count):
+                q.put((None, None))
+            for t in threads:
+                t.join()
         return inventory
 
     @staticmethod
-    def perform_recursive_inventory(fs_path, fs_base_path):
-        inventories = [Inventory.perform_inventory(fs_path, fs_base_path)]
+    def perform_recursive_inventory(fs_path, fs_base_path, fixity_threads=1):
+        inventories = [Inventory.perform_inventory(fs_path, fs_base_path, fixity_threads=fixity_threads)]
         for dir_name in inventories[0].dirs:
             inventories.extend(Inventory.perform_recursive_inventory(os.path.join(fs_path, dir_name), fs_base_path))
         return inventories
@@ -130,6 +154,42 @@ class Inventory:
             self.files[file] = fixity
 
         self.timestamp = timestamp or datetime_now()
+
+
+class FixityThread(threading.Thread):
+    def __init__(self, queue, files, *args, **kwargs):
+        self.exc = None
+        self.queue = queue
+        self.files = files
+        super(FixityThread, self).__init__(*args, **kwargs)
+
+    def run(self):
+        while True:
+            filename, filepath = self.queue.get()
+            if filepath is None:
+                break
+            try:
+                sha256 = hashlib.sha256()
+                with open(filepath, 'rb') as f:
+                    while True:
+                        data = f.read(65536)
+                        if not data:
+                            break
+                        sha256.update(data)
+
+                self.files[filename] = sha256.hexdigest()
+            except:
+                # Save details of the exception thrown but don't rethrow,
+                import sys
+                self.exc = sys.exc_info()
+            self.queue.task_done()
+
+    def join(self):
+        threading.Thread.join(self)
+        if self.exc:
+            msg = "Thread '%s' threw an exception: %s" % (self.getName(), self.exc[1])
+            new_exc = Exception(msg)
+            raise new_exc.with_traceback(self.exc[2])
 
 
 class InventoryDiff:
