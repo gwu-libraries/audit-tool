@@ -236,17 +236,23 @@ class InventoryDiff:
 
 
 class InventoryReport:
-    def __init__(self, base_path, inventory_diffs=None, timestamp=None):
+    def __init__(self, base_path, inventory_diffs=None, timestamp=None, applied_timestamp=None):
         self.base_path = base_path
         self.timestamp = timestamp or datetime_now()
         self.inventory_diffs = inventory_diffs or []
         timestamp = self.timestamp.isoformat()
-        self.report_filepath = os.path.join(timestamp[0:4], timestamp[5:7], timestamp[8:10], '{}.json'.format(timestamp))
+        self.report_filepath = os.path.join(timestamp[0:4], timestamp[5:7], timestamp[8:10],
+                                            '{}.json'.format(timestamp))
+        self.applied_timestamp = applied_timestamp
+
+    def applied(self):
+        self.applied_timestamp = datetime_now()
 
     def as_dict(self):
         report_dict = {
             'base_path': self.base_path,
             'timestamp': self.timestamp.isoformat(),
+            'applied_timestamp': self.applied_timestamp.isoformat() if self.applied_timestamp else None,
             'inventory_diffs': []
         }
         for inventory_diff in self.inventory_diffs:
@@ -266,7 +272,10 @@ class InventoryReport:
         with open(report_filepath) as f:
             report_json = json.load(f)
 
-        inventory_report = InventoryReport(report_json['base_path'], timestamp=parse_datetime(report_json['timestamp']))
+        inventory_report = InventoryReport(report_json['base_path'],
+                                           timestamp=parse_datetime(report_json['timestamp']),
+                                           applied_timestamp=parse_datetime(report_json['applied_timestamp'])
+            if report_json['applied_timestamp'] else None)
         for inventory_diff_dict in report_json['inventory_diffs']:
             inventory_report.inventory_diffs.append(InventoryDiff.from_dict(inventory_diff_dict))
         return inventory_report

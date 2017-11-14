@@ -60,7 +60,8 @@ class InventoryManager:
 
 
 InventoryReportSummary = namedtuple('InventoryReportSummary',
-                                    ['report_filepath', 'report_timestamp', 'base_path', 'has_diffs'])
+                                    ['report_filepath', 'report_timestamp', 'report_applied_timestamp', 'base_path',
+                                     'has_diffs'])
 
 
 class InventoryReportsIndex:
@@ -84,7 +85,7 @@ class InventoryReportsIndex:
         with conn:
             conn.execute(
                 'create table if not exists reports (report_filepath primary key, report_timestamp timestamp, '
-                'base_path, has_diffs boolean);')
+                'report_applied_timestamp timestamp, base_path, has_diffs boolean);')
 
     def add_report(self, inventory_report, report_filepath):
         conn = self._get_conn()
@@ -93,8 +94,14 @@ class InventoryReportsIndex:
                          '(?, ?, ?, ?);', (report_filepath, inventory_report.timestamp,
                                            inventory_report.base_path, bool(inventory_report.inventory_diffs)))
 
+    def update_applied_timestamp(self, inventory_report, report_filepath):
+        conn = self._get_conn()
+        with conn:
+            conn.execute('update reports set report_applied_timestamp=? where report_filepath=?',
+                         (inventory_report.applied_timestamp, report_filepath))
+
     def get_reports(self, limit=25, has_diffs_only=False):
-        sql = 'select report_filepath, report_timestamp, base_path, has_diffs from reports'
+        sql = 'select report_filepath, report_timestamp, report_applied_timestamp, base_path, has_diffs from reports'
         params = []
         if has_diffs_only:
             sql += ' where has_diffs=?'
@@ -102,13 +109,11 @@ class InventoryReportsIndex:
         sql += ' order by report_timestamp desc'
         return list(map(InventoryReportSummary._make, self._get_conn().execute(sql, params).fetchmany(limit)))
 
-
 def find_base_path(base_paths, path):
     for base_path in base_paths:
         if path.startswith(base_path):
             return base_path
     raise Exception('{} is not contained in available base paths: {}.'.format(path, base_paths))
-
 
 def send_notification(send_to, subject, text, host, port, username, password, file=None):
     msg = MIMEMultipart()
@@ -198,8 +203,9 @@ if __name__ == '__main__':
             inventory_report_index.add_report(inventory_report, report_filepath)
             if args.notify == 'all' or (args.notify == 'error_only' and inventory_report.inventory_diffs):
                 send_notification(config['email']['send_to'],
-                                  '{}hanges detected in {}'.format('C' if inventory_report.inventory_diffs else 'No c',
-                                                                   args.path),
+                                  '{}hanges detected in {}'.format(
+                                      'C' if inventory_report.inventory_diffs else 'No c',
+                                      args.path),
                                   'You can find the report attached and at {}'.format(report_filepath),
                                   config['email']['host'],
                                   config['email']['port'],
@@ -215,10 +221,18 @@ if __name__ == '__main__':
         inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path],
                                              fixity_threads=config['fixity_threads'])
         inventory_manager.update_inventory(inventory_report)
+        inventory_report.applied()
+        inventory_report.write(report_base_path)
+        inventory_report_index.update_applied_timestamp(inventory_report, args.report_path)
         print('Updated inventory from {}'.format(args.report_path))
     elif args.command == 'list_reports':
-        for report_summary in inventory_report_index.get_reports(limit=args.limit, has_diffs_only=args.has_diffs_only):
-            print('{} (Created on {}. Base path is {}.{})'.format(report_summary.report_filepath,
-                                                                  report_summary.report_timestamp,
-                                                                  report_summary.base_path,
-                                                                  ' Has diffs.' if report_summary.has_diffs else ''))
+        for report_summary in inventory_report_index.get_reports(limit=args.limit,
+                                                                 has_diffs_only=args.has_diffs_only):
+            print('{} (Created on {}. Base path is {}.{}{})'
+                  .format(report_summary.report_filepath,
+                          report_summary.report_timestamp,
+                          report_summary.base_path,
+                          ' Applied on {}.'.format(
+                              report_summary.report_applied_timestamp) if report_summary.report_applied_timestamp
+                                                else '',
+                          ' Has diffs.' if report_summary.has_diffs else ''))

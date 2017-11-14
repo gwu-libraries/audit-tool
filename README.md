@@ -52,8 +52,3 @@ When adding a new file system to the inventory, the inventory for that file syst
         python inventory_manager.py update <path to report>
         
 4. If a discrepancy was detected and the discrepancy was caused by an error with the files, then fix the error and re-run detect changes to make sure the problem was resolved.
-
-
-## TODO:
-* Attendance-only checks.
-* Record whether reports where applied to inventory.

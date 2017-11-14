@@ -61,6 +61,7 @@ class TestInventory(TestCase):
         self.create_test_file(os.path.join(fs_path, 'dir1/file3.txt'), contents='test')
 
         inventory_report = self.inventory_manager.detect_change(fs_path)
+        self.assertIsNone(inventory_report.applied_timestamp)
         rel_path = os.path.relpath(fs_path, self.base_path)
         self.assertInventoryDiffEqual({
             'path': rel_path,
@@ -107,4 +108,6 @@ class TestInventory(TestCase):
         inventory_diff2_dict = inventory_diff2.as_dict()
         if 'timestamp' in inventory_diff2_dict:
             del inventory_diff2_dict['timestamp']
+        if 'applied_timestamp' in inventory_diff2_dict:
+            del inventory_diff2_dict['applied_timestamp']
         self.assertEqual(inventory_diff1_dict, inventory_diff2_dict)
