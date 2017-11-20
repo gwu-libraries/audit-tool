@@ -184,7 +184,7 @@ if __name__ == '__main__':
     elif args.command == 'populate':
         file_system_base_path = args.file_system_base_path
         inventory_base_path = inventory_map[file_system_base_path]
-        shutil.rmtree(inventory_base_path)
+        shutil.rmtree(inventory_base_path, ignore_errors=True)
         os.makedirs(inventory_base_path)
         inventory_manager = InventoryManager(file_system_base_path, inventory_base_path,
                                              fixity_threads=config['fixity_threads'])

@@ -24,6 +24,8 @@ Simple inventory and auditing for files/directories stored on file system.
 6. Optional: Schedule audits with cron.
 
         TODO
+
+Note: If multiple users will be performing inventorying activities, be cognizant of file permissions. One useful approach is to have all users in a common group, set the python executable to that group, and set the guid & group's executable bit (`chmod g+s`) on the python executable.
         
 ## Initial population of inventory
 When adding a new file system to the inventory, the inventory for that file system must be populated.
