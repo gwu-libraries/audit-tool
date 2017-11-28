@@ -23,7 +23,7 @@ Simple inventory and auditing for files/directories stored on file system.
         
 6. Optional: Schedule audits with cron.
 
-        TODO
+        0 12 * * Sat /opt/inventory/ENV/bin/python /opt/inventory/inventory_manager.py detect_changes --notify all /storage/Drobo5Volume1
 
 Note: If multiple users will be performing inventorying activities, be cognizant of file permissions. One useful approach is to have all users in a common group, set the python executable to that group, and set the guid & group's executable bit (`chmod g+s`) on the python executable.
         
