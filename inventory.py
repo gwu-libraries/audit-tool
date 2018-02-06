@@ -8,6 +8,7 @@ from pytz import timezone
 import iso8601
 import threading
 import queue
+import xlsxwriter
 
 log = logging.getLogger(__name__)
 
@@ -267,6 +268,90 @@ class InventoryReport:
             json.dump(self.as_dict(), f, indent=2)
         return filepath
 
+    def write_excel(self, report_path):
+        filepath = os.path.join(report_path, '{}.xlsx'.format(self.timestamp.isoformat()))
+        log.debug('Writing Excel report for %s to %s', self.base_path, filepath)
+        wb = xlsxwriter.Workbook(filepath)
+        bold = wb.add_format({'bold': True})
+
+        report_ws = wb.add_worksheet('Report')
+
+        directories_missing_from_fs_ws = wb.add_worksheet('Dirs missing from fs')
+        directories_missing_from_fs_ws.write(0, 0, 'Path', bold)
+        directories_missing_from_fs_ws.write(0, 1, 'Directory', bold)
+        directories_missing_from_fs_row = 1
+
+        directories_missing_from_inventory_ws = wb.add_worksheet('Dirs missing from inventory')
+        directories_missing_from_inventory_ws.write(0, 0, 'Path', bold)
+        directories_missing_from_inventory_ws.write(0, 1, 'Directory', bold)
+        directories_missing_from_inventory_row = 1
+
+        files_missing_from_fs_ws = wb.add_worksheet('Files missing from fs')
+        files_missing_from_fs_ws.write(0, 0, 'Path', bold)
+        files_missing_from_fs_ws.write(0, 1, 'Directory', bold)
+        files_missing_from_fs_ws.write(0, 2, 'Fixity', bold)
+        files_missing_from_fs_row = 1
+
+        files_missing_from_inventory_ws = wb.add_worksheet('Files missing from inventory')
+        files_missing_from_inventory_ws.write(0, 0, 'Path', bold)
+        files_missing_from_inventory_ws.write(0, 1, 'Directory', bold)
+        files_missing_from_inventory_ws.write(0, 2, 'Fixity', bold)
+        files_missing_from_inventory_row = 1
+
+        file_fixity_mismatch_ws = wb.add_worksheet('File fixity mismatch')
+        file_fixity_mismatch_ws.write(0, 0, 'Path', bold)
+        file_fixity_mismatch_ws.write(0, 1, 'Directory', bold)
+        file_fixity_mismatch_ws.write(0, 2, 'Expected fixity', bold)
+        file_fixity_mismatch_ws.write(0, 3, 'Actual fixity', bold)
+        file_fixity_mismatch_row = 1
+        for inventory_diff in self.inventory_diffs:
+            for directory in inventory_diff.directories_missing_from_fs:
+                directories_missing_from_fs_ws.write(directories_missing_from_fs_row, 0, inventory_diff.path)
+                directories_missing_from_fs_ws.write(directories_missing_from_fs_row, 1, directory)
+                directories_missing_from_fs_row += 1
+            for directory in inventory_diff.directories_missing_from_inventory:
+                directories_missing_from_inventory_ws.write(directories_missing_from_inventory_row, 0,
+                                                            inventory_diff.path)
+                directories_missing_from_inventory_ws.write(directories_missing_from_inventory_row, 1, directory)
+                directories_missing_from_inventory_row += 1
+            for file, fixity in inventory_diff.files_missing_from_fs.items():
+                files_missing_from_fs_ws.write(files_missing_from_fs_row, 0, inventory_diff.path)
+                files_missing_from_fs_ws.write(files_missing_from_fs_row, 1, file)
+                files_missing_from_fs_ws.write(files_missing_from_fs_row, 2, fixity)
+                files_missing_from_fs_row += 1
+            for file, fixity in inventory_diff.files_missing_from_inventory.items():
+                files_missing_from_inventory_ws.write(files_missing_from_inventory_row, 0, inventory_diff.path)
+                files_missing_from_inventory_ws.write(files_missing_from_inventory_row, 1, file)
+                files_missing_from_inventory_ws.write(files_missing_from_inventory_row, 2, fixity)
+                files_missing_from_inventory_row += 1
+            for file, fixities in inventory_diff.file_fixity_mismatch.items():
+                file_fixity_mismatch_ws.write(file_fixity_mismatch_row, 0, inventory_diff.path)
+                file_fixity_mismatch_ws.write(file_fixity_mismatch_row, 1, file)
+                file_fixity_mismatch_ws.write(file_fixity_mismatch_row, 2, fixities[0])
+                file_fixity_mismatch_ws.write(file_fixity_mismatch_row, 3, fixities[1])
+                file_fixity_mismatch_row += 1
+
+        report_ws.write(0, 0, 'Filepath:', bold)
+        report_ws.write(0, 1, self.report_filepath)
+        report_ws.write(1, 0, 'Timestamp:', bold)
+        report_ws.write(1, 1, self.timestamp.isoformat())
+        report_ws.write(2, 0, 'Applied timestamp:', bold)
+        if self.applied_timestamp:
+            report_ws.write(2, 1, self.applied_timestamp.isoformat())
+        report_ws.write(3, 0, 'Dirs missing from fs:', bold)
+        report_ws.write(3, 1, directories_missing_from_fs_row-1)
+        report_ws.write(3, 0, 'Dirs missing from inventory:', bold)
+        report_ws.write(3, 1, directories_missing_from_inventory_row-1)
+        report_ws.write(4, 0, 'Files missing from fs:', bold)
+        report_ws.write(4, 1, files_missing_from_fs_row-1)
+        report_ws.write(5, 0, 'Files missing from inventory:', bold)
+        report_ws.write(5, 1, files_missing_from_inventory_row-1)
+        report_ws.write(6, 0, 'Fixity mismatches:', bold)
+        report_ws.write(6, 1, file_fixity_mismatch_row-1)
+
+        wb.close()
+        return filepath
+
     @staticmethod
     def read(report_filepath):
         with open(report_filepath) as f:
@@ -275,7 +360,7 @@ class InventoryReport:
         inventory_report = InventoryReport(report_json['base_path'],
                                            timestamp=parse_datetime(report_json['timestamp']),
                                            applied_timestamp=parse_datetime(report_json['applied_timestamp'])
-            if report_json['applied_timestamp'] else None)
+                                           if report_json['applied_timestamp'] else None)
         for inventory_diff_dict in report_json['inventory_diffs']:
             inventory_report.inventory_diffs.append(InventoryDiff.from_dict(inventory_diff_dict))
         return inventory_report

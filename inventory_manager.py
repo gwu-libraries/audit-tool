@@ -9,6 +9,7 @@ import sqlite3
 from threading import get_ident
 from collections import namedtuple
 import smtplib
+import tempfile
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -109,13 +110,15 @@ class InventoryReportsIndex:
         sql += ' order by report_timestamp desc'
         return list(map(InventoryReportSummary._make, self._get_conn().execute(sql, params).fetchmany(limit)))
 
+
 def find_base_path(base_paths, path):
     for base_path in base_paths:
         if path.startswith(base_path):
             return base_path
     raise Exception('{} is not contained in available base paths: {}.'.format(path, base_paths))
 
-def send_notification(send_to, subject, text, host, port, username, password, file=None):
+
+def send_notification(send_to, subject, text, host, port, username, password, filepath=None):
     msg = MIMEMultipart()
     msg['From'] = username
     msg['To'] = COMMASPACE.join(send_to)
@@ -124,11 +127,20 @@ def send_notification(send_to, subject, text, host, port, username, password, fi
 
     msg.attach(MIMEText(text))
 
-    if file:
-        with open(file, "rb") as f:
-            part = MIMEApplication(f.read(), Name=os.path.basename(file))
-        part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(file)
+    if filepath:
+        with open(filepath, "rb") as f:
+            part = MIMEApplication(f.read(), Name=os.path.basename(filepath))
+        part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(filepath)
         msg.attach(part)
+
+        # Create excel report
+        temp_dir = tempfile.mkdtemp()
+        excel_filepath = InventoryReport.read(filepath).write_excel(temp_dir)
+        with open(excel_filepath, "rb") as f:
+            part = MIMEApplication(f.read(), Name=os.path.basename(excel_filepath))
+        part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(excel_filepath)
+        msg.attach(part)
+        shutil.rmtree(temp_dir)
 
     smtpserver = smtplib.SMTP(host, port)
     smtpserver.ehlo()
@@ -161,6 +173,7 @@ if __name__ == '__main__':
     detect_parser = subparsers.add_parser('detect_changes', help='Compare files/directories against the inventory')
     detect_parser.add_argument('path', help='Base path to compare.')
     detect_parser.add_argument('--no-report', action='store_true', help='Don\'t write the report.')
+    detect_parser.add_argument('--excel', action='store_true', help='If writing a report, also write an Excel report.')
     notify_choices = ('all', 'error_only')
     detect_parser.add_argument('--notify', choices=notify_choices,
                                help='Send email notification. Choices are: '.format(', '.join(notify_choices)))
@@ -171,6 +184,9 @@ if __name__ == '__main__':
     list_parser = subparsers.add_parser('list_reports', help='List inventory reports.')
     list_parser.add_argument('--limit', type=int, default=10, help='Number of reports to return.')
     list_parser.add_argument('--has-diffs-only', action='store_true', help='Limit to report with diffs only.')
+
+    excel_parser = subparsers.add_parser('excel', help='Write report to Excel')
+    excel_parser.add_argument('report_path', help='Filepath of inventory report to write to Excel.')
 
     args = parser.parse_args()
 
@@ -211,9 +227,12 @@ if __name__ == '__main__':
                                   config['email']['port'],
                                   config['email']['username'],
                                   config['email']['password'],
-                                  file=report_filepath)
+                                  filepath=report_filepath)
 
             print('Wrote report to {}'.format(report_filepath))
+            if args.excel:
+                excel_report_filepath = inventory_report.write_excel('.')
+                print('Wrote Excel report to {}'.format(excel_report_filepath))
     elif args.command == 'update':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
@@ -225,6 +244,12 @@ if __name__ == '__main__':
         inventory_report.write(report_base_path)
         inventory_report_index.update_applied_timestamp(inventory_report, args.report_path)
         print('Updated inventory from {}'.format(args.report_path))
+    elif args.command == 'excel':
+        report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
+        file_system_base_path = report_reverse_map[report_base_path]
+        inventory_report = InventoryReport.read(args.report_path)
+        excel_filepath = inventory_report.write_excel('.')
+        print('Wrote excel report to {}'.format(excel_filepath))
     elif args.command == 'list_reports':
         for report_summary in inventory_report_index.get_reports(limit=args.limit,
                                                                  has_diffs_only=args.has_diffs_only):
