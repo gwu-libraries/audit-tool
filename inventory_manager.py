@@ -160,6 +160,7 @@ if __name__ == '__main__':
     populate_parser = subparsers.add_parser('populate', help='Populate an inventory for a file system base path, '
                                                              'deleting an existing inventory, and not requiring '
                                                              'approval of inventory changes. Use carefully!')
+    populate_parser.add_argument('--exists-ok', action='store_true', help='Allow populate if inventory already exists.')
     inventory_map = {}
     report_map = {}
     report_reverse_map = {}
@@ -200,6 +201,10 @@ if __name__ == '__main__':
     elif args.command == 'populate':
         file_system_base_path = args.file_system_base_path
         inventory_base_path = inventory_map[file_system_base_path]
+        if not args.exists_ok and os.path.exists(inventory_base_path):
+            print('Inventory already exists for {} so refusing to populate. Use --exists-ok to override.'.format(
+                file_system_base_path))
+            sys.exit(1)
         shutil.rmtree(inventory_base_path, ignore_errors=True)
         os.makedirs(inventory_base_path)
         inventory_manager = InventoryManager(file_system_base_path, inventory_base_path,
@@ -259,5 +264,5 @@ if __name__ == '__main__':
                           report_summary.base_path,
                           ' Applied on {}.'.format(
                               report_summary.report_applied_timestamp) if report_summary.report_applied_timestamp
-                                                else '',
+                          else '',
                           ' Has diffs.' if report_summary.has_diffs else ''))

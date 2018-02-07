@@ -9,6 +9,7 @@ import iso8601
 import threading
 import queue
 import xlsxwriter
+import sys
 
 log = logging.getLogger(__name__)
 
@@ -372,3 +373,7 @@ def datetime_now():
 
 def parse_datetime(datetime_str):
     return iso8601.parse_date(datetime_str)
+
+if __name__ == '__main__':
+    print('You want to run inventory_manager.py, not inventory.py.')
+    sys.exit(1)
