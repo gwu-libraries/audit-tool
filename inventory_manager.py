@@ -10,6 +10,7 @@ from threading import get_ident
 from collections import namedtuple
 import smtplib
 import tempfile
+import getpass
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -189,6 +190,12 @@ if __name__ == '__main__':
     excel_parser = subparsers.add_parser('excel', help='Write report to Excel')
     excel_parser.add_argument('report_path', help='Filepath of inventory report to write to Excel.')
 
+    note_parser = subparsers.add_parser('note', help='Add a note to a report')
+    user = getpass.getuser()
+    note_parser.add_argument('--user', help='Author of note. Default is {}.'.format(user), default=user)
+    note_parser.add_argument('report_path', help='Filepath of inventory report to which to add note.')
+    note_parser.add_argument('text', help='Note text. Make sure to quote.')
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -242,6 +249,12 @@ if __name__ == '__main__':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
         inventory_report = InventoryReport.read(args.report_path)
+        if inventory_report.notes:
+            print("Here are the notes:")
+            for note in inventory_report.notes:
+                print('{} ({}): {}'.format(note.user, note.timestamp.isoformat(), note.text))
+            if input('Proceed? [Yn]: ').lower() == 'n':
+                sys.exit()
         inventory_manager = InventoryManager(file_system_base_path, inventory_map[file_system_base_path],
                                              fixity_threads=config['fixity_threads'])
         inventory_manager.update_inventory(inventory_report)
@@ -255,6 +268,13 @@ if __name__ == '__main__':
         inventory_report = InventoryReport.read(args.report_path)
         excel_filepath = inventory_report.write_excel('.')
         print('Wrote excel report to {}'.format(excel_filepath))
+    elif args.command == 'note':
+        report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
+        file_system_base_path = report_reverse_map[report_base_path]
+        inventory_report = InventoryReport.read(args.report_path)
+        inventory_report.add_note(args.text, args.user)
+        inventory_report.write(report_base_path)
+        print('Added note to {}'.format(args.report_path))
     elif args.command == 'list_reports':
         for report_summary in inventory_report_index.get_reports(limit=args.limit,
                                                                  has_diffs_only=args.has_diffs_only):

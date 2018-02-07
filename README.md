@@ -38,10 +38,12 @@ When adding a new file system to the inventory, the inventory for that file syst
 
         python inventory_manager.py detect_changes <base path containing the changes>
         
-3. Detecting the changes will produce an inventory report, describing all of the changes that were detected. Review the report to make sure that it is accurate.
+3. Detecting the changes will produce an inventory report, describing all of the changes that were detected. Review the report to make sure that it is accurate. To keep track of your progress, you may want to add notes.
 4. Update the inventory.
 
         python inventory_manager.py update <path to report>
+        
+Note: If an report has notes, you will be asked to confirm before proceeding.
         
 ## Auditing files
 1. Detect changes either by a scheduled cron job or by manually invoking:
@@ -54,3 +56,16 @@ When adding a new file system to the inventory, the inventory for that file syst
         python inventory_manager.py update <path to report>
         
 4. If a discrepancy was detected and the discrepancy was caused by an error with the files, then fix the error and re-run detect changes to make sure the problem was resolved.
+
+## Additional functions
+### Adding notes
+You can add notes with:
+
+        python inventory_manager.py note <path to report> "Your note."
+        
+Notes will be added to the report.
+
+### Excel version of report
+To get an Excel version of a report:
+
+        python inventory_manager.py excel <path to report>

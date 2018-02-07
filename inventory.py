@@ -237,8 +237,30 @@ class InventoryDiff:
         )
 
 
+class InventoryNote:
+    def __init__(self, text, user, timestamp=None):
+        self.text = text
+        self.user = user
+        self.timestamp = timestamp or datetime_now()
+
+    def as_dict(self):
+        return {
+            'text': self.text,
+            'user': self.user,
+            'timestamp': self.timestamp.isoformat()
+        }
+
+    @staticmethod
+    def from_dict(note_dict):
+        return InventoryNote(
+            note_dict['text'],
+            note_dict['user'],
+            parse_datetime(note_dict['timestamp'])
+        )
+
+
 class InventoryReport:
-    def __init__(self, base_path, inventory_diffs=None, timestamp=None, applied_timestamp=None):
+    def __init__(self, base_path, inventory_diffs=None, timestamp=None, applied_timestamp=None, notes=None):
         self.base_path = base_path
         self.timestamp = timestamp or datetime_now()
         self.inventory_diffs = inventory_diffs or []
@@ -246,19 +268,26 @@ class InventoryReport:
         self.report_filepath = os.path.join(timestamp[0:4], timestamp[5:7], timestamp[8:10],
                                             '{}.json'.format(timestamp))
         self.applied_timestamp = applied_timestamp
+        self.notes = notes or []
 
     def applied(self):
         self.applied_timestamp = datetime_now()
+
+    def add_note(self, text, user, timestamp=None):
+        self.notes.append(InventoryNote(text, user, timestamp=timestamp))
 
     def as_dict(self):
         report_dict = {
             'base_path': self.base_path,
             'timestamp': self.timestamp.isoformat(),
             'applied_timestamp': self.applied_timestamp.isoformat() if self.applied_timestamp else None,
-            'inventory_diffs': []
+            'inventory_diffs': [],
+            'notes': []
         }
         for inventory_diff in self.inventory_diffs:
             report_dict['inventory_diffs'].append(inventory_diff.as_dict())
+        for note in self.notes:
+            report_dict['notes'].append(note.as_dict())
         return report_dict
 
     def write(self, base_report_path):
@@ -270,7 +299,7 @@ class InventoryReport:
         return filepath
 
     def write_excel(self, report_path):
-        filepath = os.path.join(report_path, '{}.xlsx'.format(self.timestamp.isoformat()))
+        filepath = os.path.join(report_path, 'inventory_report_{}.xlsx'.format(self.timestamp.isoformat()))
         log.debug('Writing Excel report for %s to %s', self.base_path, filepath)
         wb = xlsxwriter.Workbook(filepath)
         bold = wb.add_format({'bold': True})
@@ -349,6 +378,16 @@ class InventoryReport:
         report_ws.write(5, 1, files_missing_from_inventory_row-1)
         report_ws.write(6, 0, 'Fixity mismatches:', bold)
         report_ws.write(6, 1, file_fixity_mismatch_row-1)
+        if self.notes:
+            report_ws.write(8, 0, 'Note text', bold)
+            report_ws.write(8, 1, 'User', bold)
+            report_ws.write(8, 2, 'Timestamp', bold)
+            report_row = 9
+            for note in self.notes:
+                report_ws.write(report_row, 0, note.text)
+                report_ws.write(report_row, 1, note.user)
+                report_ws.write(report_row, 2, note.timestamp.isoformat())
+                report_row += 1
 
         wb.close()
         return filepath
@@ -364,6 +403,8 @@ class InventoryReport:
                                            if report_json['applied_timestamp'] else None)
         for inventory_diff_dict in report_json['inventory_diffs']:
             inventory_report.inventory_diffs.append(InventoryDiff.from_dict(inventory_diff_dict))
+        for note_dict in report_json['notes']:
+            inventory_report.notes.append(InventoryNote.from_dict(note_dict))
         return inventory_report
 
 
