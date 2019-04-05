@@ -2,7 +2,7 @@ from unittest import TestCase
 import tempfile
 import shutil
 from inventory import Inventory
-from inventory_manager import InventoryManager
+from audit_tool import InventoryManager
 import os
 import hashlib
 import logging

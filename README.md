@@ -69,3 +69,7 @@ Notes will be added to the report.
 To get an Excel version of a report:
 
         python audit_tool.py excel <path to report>
+
+## Unit tests
+
+    python -m unittest discover
