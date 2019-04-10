@@ -30,7 +30,7 @@ Note: If multiple users will be performing inventorying activities, be cognizant
 ## Initial population of inventory
 When adding a new file system to the inventory, the inventory for that file system must be populated.
 
-        python audit_tool.py <file system base path>
+        python audit_tool.py populate <file system base path>
         
 ## Updating files
 1. Add, update, or delete files. If copying files from other storage, that copy should be verified (e.g., by using rsync or checking fixities before and after copy).
