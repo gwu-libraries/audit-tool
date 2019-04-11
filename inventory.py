@@ -265,9 +265,9 @@ class InventoryReport:
         self.timestamp = timestamp or datetime_now()
         self.inventory_diffs = inventory_diffs or []
         timestamp = self.timestamp.isoformat()
+        self.report_time_dir = os.path.join(timestamp[0:4], timestamp[5:7], timestamp[8:10])
         self.report_filename = timestamp.replace(".", "-").replace(":", "-")
-        self.report_filepath = os.path.join(timestamp[0:4], timestamp[5:7], timestamp[8:10],
-                                            '{}.json'.format(self.report_filename))
+        self.report_filepath = os.path.join(self.report_time_dir, '{}.json'.format(self.report_filename))
         self.applied_timestamp = applied_timestamp
         self.notes = notes or []
 
@@ -300,7 +300,7 @@ class InventoryReport:
         return filepath
 
     def write_excel(self, report_path):
-        filepath = os.path.join(report_path, 'inventory_report_{}.xlsx'.format(self.report_filename))
+        filepath = os.path.join(report_path, self.report_time_dir, 'inventory_report_{}.xlsx'.format(self.report_filename))
         log.debug('Writing Excel report for %s to %s', self.base_path, filepath)
         wb = xlsxwriter.Workbook(filepath)
         bold = wb.add_format({'bold': True})

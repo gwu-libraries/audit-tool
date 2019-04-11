@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
             print('Wrote report to {}'.format(report_filepath))
             if args.excel:
-                excel_report_filepath = inventory_report.write_excel('.')
+                excel_report_filepath = inventory_report.write_excel(report_map[file_system_base_path])
                 print('Wrote Excel report to {}'.format(excel_report_filepath))
     elif args.command == 'update':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
@@ -266,7 +266,7 @@ if __name__ == '__main__':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
         inventory_report = InventoryReport.read(args.report_path)
-        excel_filepath = inventory_report.write_excel('.')
+        excel_filepath = inventory_report.write_excel(report_base_path)
         print('Wrote excel report to {}'.format(excel_filepath))
     elif args.command == 'note':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
