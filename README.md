@@ -36,6 +36,12 @@ When adding a new file system to the inventory, the inventory for that file syst
 1. Add, update, or delete files. If copying files from other storage, that copy should be verified (e.g., by using rsync or checking fixities before and after copy).
 2. Detect the added, updated, or deleted files.
 
+To generate json and Excel reports:
+
+        python audit_tool.py detect_changes <base path containing the changes>
+
+To generate a json report only:
+
         python audit_tool.py detect_changes <base path containing the changes>
         
 3. Detecting the changes will produce an inventory report, describing all of the changes that were detected. Review the report to make sure that it is accurate. To keep track of your progress, you may want to add notes.
