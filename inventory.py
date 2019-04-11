@@ -293,7 +293,7 @@ class InventoryReport:
 
     def write(self, base_report_path):
         filepath = os.path.join(base_report_path, self.report_filepath)
-        log.debug('Writing report for %s to %s', self.base_path, filepath)
+        log.debug('Writing JSON report for %s to %s', self.base_path, filepath)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w') as f:
             json.dump(self.as_dict(), f, indent=2)
