@@ -118,6 +118,12 @@ def find_base_path(base_paths, path):
             return base_path
     raise Exception('{} is not contained in available base paths: {}.'.format(path, base_paths))
 
+def check_json_report(path):
+    ''' check to see if it's a json report to convert'''
+    if path.endswith('.json'):
+        pass
+    else:
+        raise Exception('{} is not a json report. Provide a full path to a json report.'.format(path))
 
 def send_notification(send_to, subject, text, host, port, username, password, filepath=None):
     msg = MIMEMultipart()
@@ -243,7 +249,7 @@ if __name__ == '__main__':
 
             print('Wrote report to {}'.format(report_filepath))
             if args.excel:
-                excel_report_filepath = inventory_report.write_excel('.')
+                excel_report_filepath = inventory_report.write_excel(report_map[file_system_base_path])
                 print('Wrote Excel report to {}'.format(excel_report_filepath))
     elif args.command == 'update':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
@@ -263,10 +269,11 @@ if __name__ == '__main__':
         inventory_report_index.update_applied_timestamp(inventory_report, args.report_path)
         print('Updated inventory from {}'.format(args.report_path))
     elif args.command == 'excel':
+        check_json_report(args.report_path)
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
         inventory_report = InventoryReport.read(args.report_path)
-        excel_filepath = inventory_report.write_excel('.')
+        excel_filepath = inventory_report.write_excel(report_base_path)
         print('Wrote excel report to {}'.format(excel_filepath))
     elif args.command == 'note':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
