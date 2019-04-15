@@ -9,7 +9,6 @@ import sqlite3
 from threading import get_ident
 from collections import namedtuple
 import smtplib
-import tempfile
 import getpass
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -125,7 +124,7 @@ def check_json_report(path):
     else:
         raise Exception('{} is not a json report. Provide a full path to a json report.'.format(path))
 
-def send_notification(send_to, subject, text, host, port, username, password, filepath=None):
+def send_notification(send_to, subject, text, host, port, username, password, filepath=None, excel=None):
     msg = MIMEMultipart()
     msg['From'] = username
     msg['To'] = COMMASPACE.join(send_to)
@@ -140,14 +139,11 @@ def send_notification(send_to, subject, text, host, port, username, password, fi
         part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(filepath)
         msg.attach(part)
 
-        # Create excel report
-        temp_dir = tempfile.mkdtemp()
-        excel_filepath = InventoryReport.read(filepath).write_excel(temp_dir)
-        with open(excel_filepath, "rb") as f:
-            part = MIMEApplication(f.read(), Name=os.path.basename(excel_filepath))
-        part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(excel_filepath)
-        msg.attach(part)
-        shutil.rmtree(temp_dir)
+        if excel:
+            with open(excel, "rb") as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(excel))
+            part['Content-Disposition'] = 'attachment; filename="%s"' % os.path.basename(excel)
+            msg.attach(part)
 
     smtpserver = smtplib.SMTP(host, port)
     smtpserver.ehlo()
@@ -235,22 +231,25 @@ if __name__ == '__main__':
         else:
             report_filepath = inventory_report.write(report_map[file_system_base_path])
             inventory_report_index.add_report(inventory_report, report_filepath)
+            excel_report_filepath = None
+            if args.excel:
+                excel_report_filepath = inventory_report.write_excel(report_map[file_system_base_path])
+                print('Wrote Excel report to {}'.format(excel_report_filepath))
             if args.notify == 'all' or (args.notify == 'error_only' and inventory_report.inventory_diffs):
                 send_notification(config['email']['send_to'],
                                   '{}hanges detected in {}'.format(
                                       'C' if inventory_report.inventory_diffs else 'No c',
                                       args.path),
-                                  'You can find the report attached and at {}'.format(report_filepath),
+                                  'Report{} attached and at:\n{}{}.'.format('s are' if
+                                      args.excel else ' is', report_filepath,
+                                      '\nand \n' + excel_report_filepath if
+                                      args.excel else ''),
                                   config['email']['host'],
                                   config['email']['port'],
                                   config['email']['username'],
                                   config['email']['password'],
-                                  filepath=report_filepath)
-
+                                  filepath=report_filepath, excel=excel_report_filepath)
             print('Wrote report to {}'.format(report_filepath))
-            if args.excel:
-                excel_report_filepath = inventory_report.write_excel(report_map[file_system_base_path])
-                print('Wrote Excel report to {}'.format(excel_report_filepath))
     elif args.command == 'update':
         report_base_path = find_base_path(report_reverse_map.keys(), args.report_path)
         file_system_base_path = report_reverse_map[report_base_path]
