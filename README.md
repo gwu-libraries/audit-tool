@@ -14,7 +14,17 @@ Simple inventory and auditing for files/directories stored on file system.
 3. Edit the values in `config.py`. This file contains explanations of the values.
 4. Optional: Create a virtualenv.
 
-        virtualenv -p python3 ENV
+   Check which version of Python 3 is installed:
+
+        python3 --version
+
+   Install the associated `python3.x-venv`.  You may need to do this as a different user who has `sudo` privileges.  For example, for Python 3.8:
+
+        sudo apt install python3.8-env
+
+   (As the `gwlai` user:) Create the Python virtual environment:
+
+        python3 -m venv ENV
         source ENV/bin/activate
 
 5. Install requirements.

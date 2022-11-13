@@ -1,4 +1,4 @@
-iso8601==0.1.12
-pytz==2017.2
-XlsxWriter==1.0.2
-
+iso8601==1.1.0
+pkg_resources==0.0.0
+pytz==2022.6
+XlsxWriter==3.0.3
