@@ -419,5 +419,5 @@ def parse_datetime(datetime_str):
     return iso8601.parse_date(datetime_str)
 
 if __name__ == '__main__':
-    print('You want to run inventory_manager.py, not inventory.py.')
+    print('You want to run audit_tool.py, not inventory.py.')
     sys.exit(1)
