@@ -10,12 +10,12 @@ config = {
                           '/Users/justinlittman/tmp/inventory/reports')],
         # Location of report index database.
         'report_index_db': '/Users/justinlittman/tmp/inventory/reports.db',
-        # Email configuration
+        # Email configuration - if gwu account, use @email.gwu.edu, not @gwu.edu
         'email': {
             'username': 'someone@email.gwu.edu',
             'password': 'password',
             'port': 587,
-            'host': 'smtp.gmail.com',
+            'host': 'smtp.gwu.edu',
             'send_to': ['someone@gwu.edu', 'someone_else@gwu.edu']
         },
         # Number of threads to use for fixity checking.
